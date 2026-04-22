@@ -499,6 +499,13 @@ class OpenaiRealtimeHandler(AsyncStreamHandler):
 
     async def _run_realtime_session(self) -> None:
         """Establish and manage a single realtime session."""
+        exclusion_list: list[str] = []
+        if not config.HEAD_TRACKER_ENABLED:
+            exclusion_list.append("head_tracking")
+
+        active_tools = [spec["name"] for spec in get_tool_specs(exclusion_list)]
+        logger.info("Tools to be used in conversation: %s", active_tools)
+
         async with self.client.realtime.connect(model=config.MODEL_NAME) as conn:
             try:
                 session_config = RealtimeSessionCreateRequestParam(
@@ -515,7 +522,7 @@ class OpenaiRealtimeHandler(AsyncStreamHandler):
                             voice=self._voice_override or get_session_voice(),
                         ),
                     ),
-                    tools=get_tool_specs(),  # type: ignore[typeddict-item]
+                    tools=get_tool_specs(exclusion_list),  # type: ignore[typeddict-item]
                     tool_choice="auto",
                 )
                 await conn.session.update(session=session_config)

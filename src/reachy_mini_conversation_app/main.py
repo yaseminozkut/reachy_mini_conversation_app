@@ -46,7 +46,7 @@ def run(
     """Run the Reachy Mini conversation app."""
     # Putting these dependencies here makes the dashboard faster to load when the conversation app is installed
     from reachy_mini_conversation_app.moves import MovementManager
-    from reachy_mini_conversation_app.config import config, is_gemini_model, refresh_runtime_config_from_env
+    from reachy_mini_conversation_app.config import config, is_gemini_model, refresh_runtime_config_from_env, set_head_tracker_enabled
     from reachy_mini_conversation_app.startup_settings import (
         StartupSettings,
         load_startup_settings_into_runtime,
@@ -124,6 +124,14 @@ def run(
     except CameraVisionInitializationError as e:
         logger.error("Failed to initialize camera/vision: %s", e)
         sys.exit(1)
+
+    set_head_tracker_enabled(args.head_tracker is not None and not args.no_camera)
+    if config.HEAD_TRACKER_ENABLED:
+        logger.info("head_tracking enabled (head tracker: %s).", args.head_tracker)
+    else:
+        logger.info(
+            "head_tracking excluded. To enable: --head-tracker mediapipe or --head-tracker yolo."
+        )
 
     movement_manager = MovementManager(
         current_robot=robot,

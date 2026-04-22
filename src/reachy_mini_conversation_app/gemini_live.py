@@ -366,8 +366,12 @@ class GeminiLiveHandler(AsyncStreamHandler):
         instructions = get_session_instructions()
         voice = _resolve_gemini_voice(self._voice_override or get_session_voice())
 
+        exclusion_list: list[str] = []
+        if not config.HEAD_TRACKER_ENABLED:
+            exclusion_list.append("head_tracking")
+
         # Convert OpenAI-style tool specs to Gemini function declarations
-        tool_specs = get_tool_specs()
+        tool_specs = get_tool_specs(exclusion_list)
         function_declarations = _openai_tool_specs_to_gemini(tool_specs)
 
         tools_config: List[Dict[str, Any]] = []
@@ -389,6 +393,8 @@ class GeminiLiveHandler(AsyncStreamHandler):
             output_audio_transcription=types.AudioTranscriptionConfig(),
         )
 
+        active_tools = [spec["name"] for spec in tool_specs]
+        logger.info("Tools to be used in conversation: %s", active_tools)
         logger.info(
             "Gemini Live config: model=%r voice=%r tools=%d",
             config.MODEL_NAME,
