@@ -96,7 +96,7 @@ async def test_gemini_turn_buffers_transcripts_and_schedules_motion_reset(monkey
     """Gemini turns should emit one transcript per role and let the wobbler reset after speech."""
     monkeypatch.setattr(gemini_mod, "get_session_instructions", lambda: "test")
     monkeypatch.setattr(gemini_mod, "get_session_voice", lambda: "Kore")
-    monkeypatch.setattr(gemini_mod, "get_tool_specs", lambda *_: [])
+    monkeypatch.setattr(gemini_mod, "get_active_tool_specs", lambda _: [])
 
     movement_manager = MagicMock()
     movement_manager.is_idle.return_value = False

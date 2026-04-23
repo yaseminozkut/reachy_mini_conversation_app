@@ -237,7 +237,6 @@ class Config:
     TOOLS_DIRECTORY = Path(_tools_directory_env) if _tools_directory_env else None
     AUTOLOAD_EXTERNAL_TOOLS = _env_flag("AUTOLOAD_EXTERNAL_TOOLS", default=False)
     REACHY_MINI_CUSTOM_PROFILE = LOCKED_PROFILE or os.getenv("REACHY_MINI_CUSTOM_PROFILE")
-    HEAD_TRACKER_ENABLED: bool = False
 
     logger.debug(f"Custom Profile: {REACHY_MINI_CUSTOM_PROFILE}")
 
@@ -345,11 +344,6 @@ def get_default_voice_for_backend(backend: str | None = None) -> str:
 def is_gemini_model() -> bool:
     """Return True if the configured MODEL_NAME is a Gemini Live model."""
     return get_backend_choice() == GEMINI_BACKEND
-
-
-def set_head_tracker_enabled(enabled: bool) -> None:
-    """Set whether a head-tracker backend was initialised at startup."""
-    config.HEAD_TRACKER_ENABLED = enabled
 
 
 def set_custom_profile(profile: str | None) -> None:

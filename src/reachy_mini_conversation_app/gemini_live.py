@@ -34,7 +34,7 @@ from reachy_mini_conversation_app.config import (
 from reachy_mini_conversation_app.prompts import get_session_voice, get_session_instructions
 from reachy_mini_conversation_app.tools.core_tools import (
     ToolDependencies,
-    get_tool_specs,
+    get_active_tool_specs,
 )
 from reachy_mini_conversation_app.camera_frame_encoding import encode_bgr_frame_as_jpeg
 from reachy_mini_conversation_app.tools.background_tool_manager import (
@@ -366,12 +366,12 @@ class GeminiLiveHandler(AsyncStreamHandler):
         instructions = get_session_instructions()
         voice = _resolve_gemini_voice(self._voice_override or get_session_voice())
 
-        exclusion_list: list[str] = []
-        if not config.HEAD_TRACKER_ENABLED:
-            exclusion_list.append("head_tracking")
-
         # Convert OpenAI-style tool specs to Gemini function declarations
-        tool_specs = get_tool_specs(exclusion_list)
+        tool_specs = get_active_tool_specs(self.deps)
+        logger.info(
+            "Tools to be used in conversation: %s",
+            [tool["name"] for tool in tool_specs],
+        )
         function_declarations = _openai_tool_specs_to_gemini(tool_specs)
 
         tools_config: List[Dict[str, Any]] = []
@@ -393,8 +393,6 @@ class GeminiLiveHandler(AsyncStreamHandler):
             output_audio_transcription=types.AudioTranscriptionConfig(),
         )
 
-        active_tools = [spec["name"] for spec in tool_specs]
-        logger.info("Tools to be used in conversation: %s", active_tools)
         logger.info(
             "Gemini Live config: model=%r voice=%r tools=%d",
             config.MODEL_NAME,

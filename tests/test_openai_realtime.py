@@ -27,7 +27,7 @@ async def test_tool_completion_does_not_reset_head_wobbler(monkeypatch: Any) -> 
     """Tool completion should not interrupt ongoing speech wobble."""
     monkeypatch.setattr(rt_mod, "get_session_instructions", lambda: "test")
     monkeypatch.setattr(rt_mod, "get_session_voice", lambda: "alloy")
-    monkeypatch.setattr(rt_mod, "get_tool_specs", lambda *_: [])
+    monkeypatch.setattr(rt_mod, "get_active_tool_specs", lambda _: [])
 
     async def _fake_dispatch(tool_name: str, args_json: str, deps: Any, **_kw: Any) -> dict[str, Any]:
         return {"image_description": "A person in front of a door.", "tool": tool_name}
@@ -133,7 +133,7 @@ async def test_non_idle_tool_call_does_not_queue_progress_response(monkeypatch: 
     """Tool-call startup should not enqueue a second speech response."""
     monkeypatch.setattr(rt_mod, "get_session_instructions", lambda: "test")
     monkeypatch.setattr(rt_mod, "get_session_voice", lambda: "alloy")
-    monkeypatch.setattr(rt_mod, "get_tool_specs", lambda *_: [])
+    monkeypatch.setattr(rt_mod, "get_active_tool_specs", lambda _: [])
 
     class FakeEvent:
         def __init__(self, etype: str, **kwargs: Any) -> None:
@@ -231,7 +231,7 @@ async def test_output_audio_done_schedules_head_wobbler_reset(monkeypatch: Any) 
     """OpenAI speech completion should let the wobbler reset itself after queued audio."""
     monkeypatch.setattr(rt_mod, "get_session_instructions", lambda: "test")
     monkeypatch.setattr(rt_mod, "get_session_voice", lambda: "alloy")
-    monkeypatch.setattr(rt_mod, "get_tool_specs", lambda *_: [])
+    monkeypatch.setattr(rt_mod, "get_active_tool_specs", lambda _: [])
 
     class FakeEvent:
         def __init__(self, etype: str, **kwargs: Any) -> None:
@@ -572,7 +572,7 @@ async def test_response_sender_retries_on_active_response_rejection(monkeypatch:
     monkeypatch.setattr(rt_mod, "ConnectionClosedError", FakeCCE)
     monkeypatch.setattr(rt_mod, "get_session_instructions", lambda: "test")
     monkeypatch.setattr(rt_mod, "get_session_voice", lambda: "alloy")
-    monkeypatch.setattr(rt_mod, "get_tool_specs", lambda *_: [])
+    monkeypatch.setattr(rt_mod, "get_active_tool_specs", lambda _: [])
 
     N_TOOL_RESULTS = 400
     REJECT_CALL_NUMBERS = {1, 3, 5, 10, 25, 50, 75, 100, 150, 200, 300, 399}
