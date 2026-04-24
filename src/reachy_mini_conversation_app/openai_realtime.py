@@ -1,4 +1,5 @@
 import json
+import uuid
 import base64
 import random
 import asyncio
@@ -7,21 +8,36 @@ from typing import Any, Final, Tuple, Literal, Optional
 from pathlib import Path
 from datetime import datetime
 
-import cv2
 import numpy as np
 import gradio as gr
 from openai import AsyncOpenAI
 from fastrtc import AdditionalOutputs, AsyncStreamHandler, wait_for_item, audio_to_int16
+from pydantic import Field, BaseModel
 from numpy.typing import NDArray
 from scipy.signal import resample
+from openai.types.realtime import (
+    AudioTranscriptionParam,
+    RealtimeAudioConfigParam,
+    RealtimeAudioConfigInputParam,
+    RealtimeAudioConfigOutputParam,
+    RealtimeResponseCreateParamsParam,
+    RealtimeSessionCreateRequestParam,
+)
 from websockets.exceptions import ConnectionClosedError
+from openai.resources.realtime.realtime import AsyncRealtimeConnection
+from openai.types.realtime.realtime_audio_formats_param import AudioPCM
+from openai.types.realtime.realtime_audio_input_turn_detection_param import ServerVad
 
-from reachy_mini_conversation_app.config import config
+from reachy_mini_conversation_app.config import AVAILABLE_VOICES, config
 from reachy_mini_conversation_app.prompts import get_session_voice, get_session_instructions
 from reachy_mini_conversation_app.tools.core_tools import (
     ToolDependencies,
     get_tool_specs,
-    dispatch_tool_call,
+)
+from reachy_mini_conversation_app.tools.background_tool_manager import (
+    ToolCallRoutine,
+    ToolNotification,
+    BackgroundToolManager,
 )
 
 
@@ -30,11 +46,57 @@ logger = logging.getLogger(__name__)
 OPEN_AI_INPUT_SAMPLE_RATE: Final[Literal[24000]] = 24000
 OPEN_AI_OUTPUT_SAMPLE_RATE: Final[Literal[24000]] = 24000
 
+# Cost tracking from usage data (pricing as of Feb 2026 https://openai.com/api/pricing/)
+AUDIO_INPUT_COST_PER_1M = 32.0
+AUDIO_OUTPUT_COST_PER_1M = 64.0
+TEXT_INPUT_COST_PER_1M = 4.0
+TEXT_OUTPUT_COST_PER_1M = 16.0
+IMAGE_INPUT_COST_PER_1M = 5.0
+
+_RESPONSE_DONE_TIMEOUT: Final[float] = 30.0
+
+
+class InputTranscriptChunksByItem(BaseModel):
+    """Current item_id and its accumulated deltas. Only one item at a time."""
+
+    item_id: str | None = None
+    deltas: list[str] = Field(default_factory=list)
+
+
+def _compute_response_cost(usage: Any) -> float:
+    """Compute dollar cost from a response usage object."""
+    inp = getattr(usage, "input_token_details", None)
+    out = getattr(usage, "output_token_details", None)
+    cost = 0.0
+    if inp:
+        cost += (getattr(inp, "audio_tokens", 0) or 0) * AUDIO_INPUT_COST_PER_1M / 1e6
+        cost += (getattr(inp, "text_tokens", 0) or 0) * TEXT_INPUT_COST_PER_1M / 1e6
+        cost += (getattr(inp, "image_tokens", 0) or 0) * IMAGE_INPUT_COST_PER_1M / 1e6
+    if out:
+        cost += (getattr(out, "audio_tokens", 0) or 0) * AUDIO_OUTPUT_COST_PER_1M / 1e6
+        cost += (getattr(out, "text_tokens", 0) or 0) * TEXT_OUTPUT_COST_PER_1M / 1e6
+    return cost
+
+
+def _normalize_startup_voice(voice: str | None) -> str | None:
+    """Return a valid persisted OpenAI startup voice or None."""
+    if voice in AVAILABLE_VOICES:
+        return voice
+    if voice:
+        logger.warning("Ignoring persisted OpenAI startup voice %r; expected one of %s", voice, AVAILABLE_VOICES)
+    return None
+
 
 class OpenaiRealtimeHandler(AsyncStreamHandler):
     """An OpenAI realtime handler for fastrtc Stream."""
 
-    def __init__(self, deps: ToolDependencies, gradio_mode: bool = False, instance_path: Optional[str] = None):
+    def __init__(
+        self,
+        deps: ToolDependencies,
+        gradio_mode: bool = False,
+        instance_path: Optional[str] = None,
+        startup_voice: Optional[str] = None,
+    ):
         """Initialize the handler."""
         super().__init__(
             expected_layout="mono",
@@ -52,7 +114,7 @@ class OpenaiRealtimeHandler(AsyncStreamHandler):
         self.output_sample_rate = OPEN_AI_OUTPUT_SAMPLE_RATE
         self.input_sample_rate = OPEN_AI_INPUT_SAMPLE_RATE
 
-        self.connection: Any = None
+        self.connection: AsyncRealtimeConnection | None = None
         self.output_queue: "asyncio.Queue[Tuple[int, NDArray[np.int16]] | AdditionalOutputs]" = asyncio.Queue()
 
         self.last_activity_time = asyncio.get_event_loop().time()
@@ -60,22 +122,41 @@ class OpenaiRealtimeHandler(AsyncStreamHandler):
         self.is_idle_tool_call = False
         self.gradio_mode = gradio_mode
         self.instance_path = instance_path
+        self._voice_override: str | None = _normalize_startup_voice(startup_voice)
         # Track how the API key was provided (env vs textbox) and its value
         self._key_source: Literal["env", "textbox"] = "env"
         self._provided_api_key: str | None = None
 
         # Debouncing for partial transcripts
         self.partial_transcript_task: asyncio.Task[None] | None = None
-        self.partial_transcript_sequence: int = 0  # sequence counter to prevent stale emissions
         self.partial_debounce_delay = 0.5  # seconds
+        self.input_transcript_chunks_by_item = InputTranscriptChunksByItem()
 
         # Internal lifecycle flags
-        self._shutdown_requested: bool = False
         self._connected_event: asyncio.Event = asyncio.Event()
+
+        # Background tool manager
+        self.tool_manager = BackgroundToolManager()
+
+        # Cost tracking
+        self.cumulative_cost: float = 0.0
+
+        # Response-in-progress guard: the Realtime API only allows one active
+        # response per conversation at a time.  A dedicated worker task
+        # (_response_sender_loop) dequeues and sends one request at a time
+        self._pending_responses: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+        self._response_done_event: asyncio.Event = asyncio.Event()
+        self._response_done_event.set()
+        self._last_response_rejected: bool = False
 
     def copy(self) -> "OpenaiRealtimeHandler":
         """Create a copy of the handler."""
-        return OpenaiRealtimeHandler(self.deps, self.gradio_mode, self.instance_path)
+        return OpenaiRealtimeHandler(
+            self.deps,
+            self.gradio_mode,
+            self.instance_path,
+            startup_voice=self._voice_override,
+        )
 
     async def apply_personality(self, profile: str | None) -> str:
         """Apply a new personality (profile) at runtime if possible.
@@ -98,7 +179,7 @@ class OpenaiRealtimeHandler(AsyncStreamHandler):
 
             try:
                 instructions = get_session_instructions()
-                voice = get_session_voice()
+                voice = self._voice_override or get_session_voice()
             except BaseException as e:  # catch SystemExit from prompt loader without crashing
                 logger.error("Failed to resolve personality content: %s", e)
                 return f"Failed to apply personality: {e}"
@@ -107,11 +188,15 @@ class OpenaiRealtimeHandler(AsyncStreamHandler):
             if self.connection is not None:
                 try:
                     await self.connection.session.update(
-                        session={
-                            "type": "realtime",
-                            "instructions": instructions,
-                            "audio": {"output": {"voice": voice}},
-                        },
+                        session=RealtimeSessionCreateRequestParam(
+                            type="realtime",
+                            instructions=instructions,
+                            audio=RealtimeAudioConfigParam(
+                                output=RealtimeAudioConfigOutputParam(
+                                    voice=voice,
+                                ),
+                            ),
+                        ),
                     )
                     logger.info("Applied personality via live update: %s", profile or "built-in default")
                 except Exception as e:
@@ -134,12 +219,29 @@ class OpenaiRealtimeHandler(AsyncStreamHandler):
             logger.error("Error applying personality '%s': %s", profile, e)
             return f"Failed to apply personality: {e}"
 
-    async def _emit_debounced_partial(self, transcript: str, sequence: int) -> None:
+    async def change_voice(self, voice: str) -> str:
+        """Change only the voice and restart the session."""
+        self._voice_override = voice
+        if getattr(self, "client", None) is not None:
+            try:
+                await self._restart_session()
+                return f"Voice changed to {voice}."
+            except Exception as e:
+                logger.warning("Failed to restart session for voice change: %s", e)
+                return "Voice change failed. Will take effect on next connection."
+        return "Voice changed. Will take effect on next connection."
+
+    def get_current_voice(self) -> str:
+        """Return the voice currently selected for this handler."""
+        return self._voice_override or get_session_voice()
+
+    async def _emit_debounced_partial(self, transcript: str, item_id: str, sequence_counter: int) -> None:
         """Emit partial transcript after debounce delay."""
         try:
             await asyncio.sleep(self.partial_debounce_delay)
-            # Only emit if this is still the latest partial (by sequence number)
-            if self.partial_transcript_sequence == sequence:
+
+            input_transcript = self.input_transcript_chunks_by_item
+            if input_transcript.item_id == item_id and len(input_transcript.deltas) - 1 == sequence_counter:
                 await self.output_queue.put(AdditionalOutputs({"role": "user_partial", "content": transcript}))
                 logger.debug(f"Debounced partial emitted: {transcript}")
         except asyncio.CancelledError:
@@ -229,42 +331,198 @@ class OpenaiRealtimeHandler(AsyncStreamHandler):
         except Exception as e:
             logger.warning("_restart_session failed: %s", e)
 
+    async def _safe_response_create(self, **kwargs: Any) -> None:
+        """Enqueue a response.create() kwargs for the sender worker _response_sender_loop().
+
+        This method never blocks the caller.
+        """
+        await self._pending_responses.put(kwargs)
+
+    async def _response_sender_loop(self) -> None:
+        """Dedicated worker that sends ``response.create()`` calls serially.
+
+        This logic was designed to comply with the response.create() docstring specification for event ordering:
+        https://github.com/openai/openai-python/blob/3e0c05b84a2056870abf3bd6a5e7849020209cc3/src/openai/resources/realtime/realtime.py#L649C1-L651C30
+
+        For each queued request the worker:
+        1. Waits until no response is active (_response_done_event).
+        2. Sends response.create().
+        3. Waits for the response cycle to complete (response.done).
+        4. If the server rejected with active_response, retries from step 1.
+        """
+        while self.connection:
+            try:
+                kwargs = await self._pending_responses.get()
+            except asyncio.CancelledError:
+                return
+
+            sent = False
+            max_retries = 5
+            attempts = 0
+            while not sent and self.connection and attempts < max_retries:
+                try:
+                    await asyncio.wait_for(self._response_done_event.wait(), timeout=_RESPONSE_DONE_TIMEOUT)
+                except asyncio.TimeoutError:
+                    logger.debug("Timed out waiting for previous response to finish; forcing ahead")
+                    self._response_done_event.set()
+
+                if not self.connection:
+                    break
+
+                self._last_response_rejected = False
+                try:
+                    await self.connection.response.create(**kwargs)
+                except Exception as e:
+                    logger.debug("_response_sender_loop: send failed: %s", e)
+                    self._response_done_event.set()
+                    break
+
+                try:
+                    await asyncio.wait_for(self._response_done_event.wait(), timeout=_RESPONSE_DONE_TIMEOUT)
+                except asyncio.TimeoutError:
+                    logger.debug("Timed out waiting for response.done; assuming response completed")
+                    self._response_done_event.set()
+                    break
+
+                # Check if we were rejected
+                if self._last_response_rejected:
+                    attempts += 1
+                    if attempts >= max_retries:
+                        logger.debug("response.create rejected %d times; giving up", attempts)
+                        break
+                    logger.debug("response.create was rejected; retrying (%d/%d)", attempts, max_retries)
+                    continue
+
+                sent = True
+
+    async def _handle_tool_result(self, bg_tool: ToolNotification) -> None:
+        """Process the result of a tool call."""
+        if bg_tool.error is not None:
+            logger.error("Tool '%s' (id=%s) failed with error: %s", bg_tool.tool_name, bg_tool.id, bg_tool.error)
+            tool_result = {"error": bg_tool.error}
+        elif bg_tool.result is not None:
+            tool_result = bg_tool.result
+            logger.info(
+                "Tool '%s' (id=%s) executed successfully.",
+                bg_tool.tool_name,
+                bg_tool.id,
+            )
+            logger.debug("Tool '%s' full result: %s", bg_tool.tool_name, tool_result)
+        else:
+            logger.warning("Tool '%s' (id=%s) returned no result and no error", bg_tool.tool_name, bg_tool.id)
+            tool_result = {"error": "No result returned from tool execution"}
+
+        # Connection may have closed while tool was running
+        if not self.connection:
+            logger.warning(
+                "Connection closed during tool '%s' (id=%s) execution; cannot send result back",
+                bg_tool.tool_name,
+                bg_tool.id,
+            )
+            return
+
+        try:
+            # TODO: refactor this since it's repeated here, in the camera branch below, and in send_idle_signal
+            if isinstance(bg_tool.id, str):
+                await self.connection.conversation.item.create(
+                    item={
+                        "type": "function_call_output",
+                        "call_id": bg_tool.id,
+                        "output": json.dumps(tool_result),
+                    },
+                )
+
+            await self.output_queue.put(
+                AdditionalOutputs(
+                    {
+                        "role": "assistant",
+                        "content": json.dumps(tool_result),
+                        # Gradio UI metadata.status accept only "pending" and "done". Do not accept bg.tool.status values.
+                        "metadata": {
+                            "title": f"🛠️ Used tool {bg_tool.tool_name}",
+                            "status": "done",
+                        },
+                    },
+                ),
+            )
+
+            if bg_tool.tool_name == "camera" and "b64_im" in tool_result:
+                # use raw base64, don't json.dumps (which adds quotes)
+                b64_im = tool_result["b64_im"]
+                if not isinstance(b64_im, str):
+                    logger.warning("Unexpected type for b64_im: %s", type(b64_im))
+                    b64_im = str(b64_im)
+                await self.connection.conversation.item.create(
+                    item={
+                        "type": "message",
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "input_image",
+                                "image_url": f"data:image/jpeg;base64,{b64_im}",
+                            },
+                        ],
+                    },
+                )
+                logger.info("Added camera image to conversation")
+
+                if self.deps.camera_worker is not None:
+                    np_img = self.deps.camera_worker.get_latest_frame()
+                    if np_img is not None:
+                        rgb_frame = np.ascontiguousarray(np_img[..., ::-1])
+                    else:
+                        rgb_frame = None
+                    img = gr.Image(value=rgb_frame)
+
+                    await self.output_queue.put(
+                        AdditionalOutputs(
+                            {
+                                "role": "assistant",
+                                "content": img,
+                            },
+                        ),
+                    )
+
+            # If this tool call was triggered by an idle signal, don't make the robot speak.
+            # For other tool calls, let the robot reply out loud.
+            if not bg_tool.is_idle_tool_call:
+                await self._safe_response_create(
+                    response=RealtimeResponseCreateParamsParam(
+                        instructions="Use the tool result just returned and answer concisely in speech.",
+                    ),
+                )
+
+        except ConnectionClosedError:
+            logger.warning("Connection closed while sending tool result")
+            self.connection = None
+            self._response_done_event.set()
+
     async def _run_realtime_session(self) -> None:
         """Establish and manage a single realtime session."""
         async with self.client.realtime.connect(model=config.MODEL_NAME) as conn:
             try:
-                await conn.session.update(
-                    session={
-                        "type": "realtime",
-                        "instructions": get_session_instructions(),
-                        "audio": {
-                            "input": {
-                                "format": {
-                                    "type": "audio/pcm",
-                                    "rate": self.input_sample_rate,
-                                },
-                                "transcription": {"model": "gpt-4o-transcribe", "language": "en"},
-                                "turn_detection": {
-                                    "type": "server_vad",
-                                    "interrupt_response": True,
-                                },
-                            },
-                            "output": {
-                                "format": {
-                                    "type": "audio/pcm",
-                                    "rate": self.output_sample_rate,
-                                },
-                                "voice": get_session_voice(),
-                            },
-                        },
-                        "tools": get_tool_specs(),  # type: ignore[typeddict-item]
-                        "tool_choice": "auto",
-                    },
+                session_config = RealtimeSessionCreateRequestParam(
+                    type="realtime",
+                    instructions=get_session_instructions(),
+                    audio=RealtimeAudioConfigParam(
+                        input=RealtimeAudioConfigInputParam(
+                            format=AudioPCM(type="audio/pcm", rate=self.input_sample_rate),
+                            transcription=AudioTranscriptionParam(model="gpt-4o-transcribe", language="en"),
+                            turn_detection=ServerVad(type="server_vad", interrupt_response=True),
+                        ),
+                        output=RealtimeAudioConfigOutputParam(
+                            format=AudioPCM(type="audio/pcm", rate=self.output_sample_rate),
+                            voice=self._voice_override or get_session_voice(),
+                        ),
+                    ),
+                    tools=get_tool_specs(),  # type: ignore[typeddict-item]
+                    tool_choice="auto",
                 )
+                await conn.session.update(session=session_config)
                 logger.info(
                     "Realtime session initialized with profile=%r voice=%r",
                     getattr(config, "REACHY_MINI_CUSTOM_PROFILE", None),
-                    get_session_voice(),
+                    self._voice_override or get_session_voice(),
                 )
                 # If we reached here, the session update succeeded which implies the API key worked.
                 # Persist the key to a newly created .env (copied from .env.example) if needed.
@@ -275,198 +533,205 @@ class OpenaiRealtimeHandler(AsyncStreamHandler):
 
             logger.info("Realtime session updated successfully")
 
+            # Reset the partial-transcript accumulator for each new session
+            self.input_transcript_chunks_by_item = InputTranscriptChunksByItem()
+
             # Manage event received from the openai server
             self.connection = conn
             try:
                 self._connected_event.set()
             except Exception:
                 pass
-            async for event in self.connection:
-                logger.debug(f"OpenAI event: {event.type}")
-                if event.type == "input_audio_buffer.speech_started":
-                    if hasattr(self, "_clear_queue") and callable(self._clear_queue):
-                        self._clear_queue()
-                    if self.deps.head_wobbler is not None:
-                        self.deps.head_wobbler.reset()
-                    self.deps.movement_manager.set_listening(True)
-                    logger.debug("User speech started")
 
-                if event.type == "input_audio_buffer.speech_stopped":
-                    self.deps.movement_manager.set_listening(False)
-                    logger.debug("User speech stopped - server will auto-commit with VAD")
+            response_sender_task: asyncio.Task[None] | None = None
+            try:
+                # Start the background tool manager
+                self.tool_manager.start_up(tool_callbacks=[self._handle_tool_result])
 
-                if event.type in (
-                    "response.audio.done",  # GA
-                    "response.output_audio.done",  # GA alias
-                    "response.audio.completed",  # legacy (for safety)
-                    "response.completed",  # text-only completion
-                ):
-                    logger.debug("response completed")
+                # Start the response sender worker
+                response_sender_task = asyncio.create_task(self._response_sender_loop(), name="response-sender")
 
-                if event.type == "response.created":
-                    logger.debug("Response created")
+                async for event in self.connection:
+                    logger.debug(f"OpenAI event: {event.type}")
+                    if event.type == "input_audio_buffer.speech_started":
+                        if hasattr(self, "_clear_queue") and callable(self._clear_queue):
+                            self._clear_queue()
+                        if self.deps.head_wobbler is not None:
+                            self.deps.head_wobbler.reset()
+                        self.deps.movement_manager.set_listening(True)
+                        logger.debug("User speech started")
 
-                if event.type == "response.done":
-                    # Doesn't mean the audio is done playing
-                    logger.debug("Response done")
+                    if event.type == "input_audio_buffer.speech_stopped":
+                        self.deps.movement_manager.set_listening(False)
+                        logger.debug("User speech stopped - server will auto-commit with VAD")
 
-                # Handle partial transcription (user speaking in real-time)
-                if event.type == "conversation.item.input_audio_transcription.partial":
-                    logger.debug(f"User partial transcript: {event.transcript}")
+                    if event.type == "response.output_audio.done":
+                        if self.deps.head_wobbler is not None:
+                            self.deps.head_wobbler.request_reset_after_current_audio()
+                        logger.debug("response completed")
 
-                    # Increment sequence
-                    self.partial_transcript_sequence += 1
-                    current_sequence = self.partial_transcript_sequence
+                    if event.type == "response.created":
+                        self._response_done_event.clear()
+                        logger.debug("Response created (active)")
 
-                    # Cancel previous debounce task if it exists
-                    if self.partial_transcript_task and not self.partial_transcript_task.done():
-                        self.partial_transcript_task.cancel()
-                        try:
-                            await self.partial_transcript_task
-                        except asyncio.CancelledError:
-                            pass
+                    if event.type == "response.done":
+                        # Doesn't mean the audio is done playing
+                        self._response_done_event.set()
+                        logger.debug("Response done")
 
-                    # Start new debounce timer with sequence number
-                    self.partial_transcript_task = asyncio.create_task(
-                        self._emit_debounced_partial(event.transcript, current_sequence)
-                    )
+                        response = getattr(event, "response", None)
+                        usage = getattr(response, "usage", None) if response else None
+                        if usage:
+                            cost = _compute_response_cost(usage)
+                            self.cumulative_cost += cost
+                            logger.debug("Cost: $%.4f | Cumulative: $%.4f", cost, self.cumulative_cost)
+                        else:
+                            logger.warning("No usage data available for cost tracking")
 
-                # Handle completed transcription (user finished speaking)
-                if event.type == "conversation.item.input_audio_transcription.completed":
-                    logger.debug(f"User transcript: {event.transcript}")
+                    if event.type == "conversation.item.input_audio_transcription.delta":
+                        logger.debug(f"User partial transcript: {event.delta}")
 
-                    # Cancel any pending partial emission
-                    if self.partial_transcript_task and not self.partial_transcript_task.done():
-                        self.partial_transcript_task.cancel()
-                        try:
-                            await self.partial_transcript_task
-                        except asyncio.CancelledError:
-                            pass
+                        item_id = event.item_id
+                        delta = event.delta or ""
 
-                    await self.output_queue.put(AdditionalOutputs({"role": "user", "content": event.transcript}))
+                        input_transcript = self.input_transcript_chunks_by_item
+                        if input_transcript.item_id != item_id:
+                            input_transcript.item_id = item_id
+                            input_transcript.deltas = [delta]
+                        else:
+                            input_transcript.deltas.append(delta)
 
-                # Handle assistant transcription
-                if event.type in ("response.audio_transcript.done", "response.output_audio_transcript.done"):
-                    logger.debug(f"Assistant transcript: {event.transcript}")
-                    await self.output_queue.put(AdditionalOutputs({"role": "assistant", "content": event.transcript}))
+                        sequence_counter = len(input_transcript.deltas) - 1
 
-                # Handle audio delta
-                if event.type in ("response.audio.delta", "response.output_audio.delta"):
-                    if self.deps.head_wobbler is not None:
-                        self.deps.head_wobbler.feed(event.delta)
-                    self.last_activity_time = asyncio.get_event_loop().time()
-                    logger.debug("last activity time updated to %s", self.last_activity_time)
-                    await self.output_queue.put(
-                        (
-                            self.output_sample_rate,
-                            np.frombuffer(base64.b64decode(event.delta), dtype=np.int16).reshape(1, -1),
-                        ),
-                    )
+                        # Cancel previous debounce task if it exists
+                        if self.partial_transcript_task and not self.partial_transcript_task.done():
+                            self.partial_transcript_task.cancel()
+                            try:
+                                await self.partial_transcript_task
+                            except asyncio.CancelledError:
+                                pass
 
-                # ---- tool-calling plumbing ----
-                if event.type == "response.function_call_arguments.done":
-                    tool_name = getattr(event, "name", None)
-                    args_json_str = getattr(event, "arguments", None)
-                    call_id = getattr(event, "call_id", None)
-
-                    if not isinstance(tool_name, str) or not isinstance(args_json_str, str):
-                        logger.error("Invalid tool call: tool_name=%s, args=%s", tool_name, args_json_str)
-                        continue
-
-                    try:
-                        tool_result = await dispatch_tool_call(tool_name, args_json_str, self.deps)
-                        logger.debug("Tool '%s' executed successfully", tool_name)
-                        logger.debug("Tool result: %s", tool_result)
-                    except Exception as e:
-                        logger.error("Tool '%s' failed", tool_name)
-                        tool_result = {"error": str(e)}
-
-                    # send the tool result back
-                    if isinstance(call_id, str):
-                        await self.connection.conversation.item.create(
-                            item={
-                                "type": "function_call_output",
-                                "call_id": call_id,
-                                "output": json.dumps(tool_result),
-                            },
+                        # Start new debounce timer with the last delta
+                        self.partial_transcript_task = asyncio.create_task(
+                            self._emit_debounced_partial("".join(input_transcript.deltas), item_id, sequence_counter)
                         )
 
-                    await self.output_queue.put(
-                        AdditionalOutputs(
-                            {
-                                "role": "assistant",
-                                "content": json.dumps(tool_result),
-                                "metadata": {"title": f"🛠️ Used tool {tool_name}", "status": "done"},
-                            },
-                        ),
-                    )
+                    # Handle completed transcription (user finished speaking)
+                    if event.type == "conversation.item.input_audio_transcription.completed":
+                        logger.debug(f"User transcript: {event.transcript}")
 
-                    if tool_name == "camera" and "b64_im" in tool_result:
-                        # use raw base64, don't json.dumps (which adds quotes)
-                        b64_im = tool_result["b64_im"]
-                        if not isinstance(b64_im, str):
-                            logger.warning("Unexpected type for b64_im: %s", type(b64_im))
-                            b64_im = str(b64_im)
-                        await self.connection.conversation.item.create(
-                            item={
-                                "type": "message",
-                                "role": "user",
-                                "content": [
-                                    {
-                                        "type": "input_image",
-                                        "image_url": f"data:image/jpeg;base64,{b64_im}",
-                                    },
-                                ],
-                            },
-                        )
-                        logger.info("Added camera image to conversation")
+                        # Cancel any pending partial emission
+                        if self.partial_transcript_task and not self.partial_transcript_task.done():
+                            self.partial_transcript_task.cancel()
+                            try:
+                                await self.partial_transcript_task
+                            except asyncio.CancelledError:
+                                pass
 
-                        if self.deps.camera_worker is not None:
-                            np_img = self.deps.camera_worker.get_latest_frame()
-                            if np_img is not None:
-                                # Camera frames are BGR from OpenCV; convert so Gradio displays correct colors.
-                                rgb_frame = cv2.cvtColor(np_img, cv2.COLOR_BGR2RGB)
-                            else:
-                                rgb_frame = None
-                            img = gr.Image(value=rgb_frame)
+                        await self.output_queue.put(AdditionalOutputs({"role": "user", "content": event.transcript}))
 
-                            await self.output_queue.put(
-                                AdditionalOutputs(
-                                    {
-                                        "role": "assistant",
-                                        "content": img,
-                                    },
-                                ),
-                            )
-
-                    # if this tool call was triggered by an idle signal, don't make the robot speak
-                    # for other tool calls, let the robot reply out loud
-                    if self.is_idle_tool_call:
-                        self.is_idle_tool_call = False
-                    else:
-                        await self.connection.response.create(
-                            response={
-                                "instructions": "Use the tool result just returned and answer concisely in speech.",
-                            },
-                        )
-
-                    # re synchronize the head wobble after a tool call that may have taken some time
-                    if self.deps.head_wobbler is not None:
-                        self.deps.head_wobbler.reset()
-
-                # server error
-                if event.type == "error":
-                    err = getattr(event, "error", None)
-                    msg = getattr(err, "message", str(err) if err else "unknown error")
-                    code = getattr(err, "code", "")
-
-                    logger.error("Realtime error [%s]: %s (raw=%s)", code, msg, err)
-
-                    # Only show user-facing errors, not internal state errors
-                    if code not in ("input_audio_buffer_commit_empty", "conversation_already_has_active_response"):
+                    # Handle assistant transcription
+                    if event.type == "response.output_audio_transcript.done":
+                        logger.debug(f"Assistant transcript: {event.transcript}")
                         await self.output_queue.put(
-                            AdditionalOutputs({"role": "assistant", "content": f"[error] {msg}"})
+                            AdditionalOutputs({"role": "assistant", "content": event.transcript})
                         )
+
+                    # Handle audio delta
+                    if event.type == "response.output_audio.delta":
+                        if self.gradio_mode and self.deps.head_wobbler is not None:
+                            self.deps.head_wobbler.feed(event.delta)
+                        self.last_activity_time = asyncio.get_event_loop().time()
+                        logger.debug("last activity time updated to %s", self.last_activity_time)
+                        await self.output_queue.put(
+                            (
+                                self.output_sample_rate,
+                                np.frombuffer(base64.b64decode(event.delta), dtype=np.int16).reshape(1, -1),
+                            ),
+                        )
+
+                    # ---- tool-calling plumbing ----
+                    if event.type == "response.function_call_arguments.done":
+                        tool_name = getattr(event, "name", None)
+                        args_json_str = getattr(event, "arguments", None)
+                        call_id: str = str(getattr(event, "call_id", uuid.uuid4()))
+
+                        logger.info(
+                            "Tool call received — tool_name=%r, call_id=%s, is_idle=%s, args=%s",
+                            tool_name,
+                            call_id,
+                            self.is_idle_tool_call,
+                            args_json_str,
+                        )
+
+                        if not isinstance(tool_name, str) or not isinstance(args_json_str, str):
+                            logger.error(
+                                "Invalid tool call: tool_name=%s (type=%s), args=%s (type=%s), call_id=%s",
+                                tool_name,
+                                type(tool_name).__name__,
+                                args_json_str,
+                                type(args_json_str).__name__,
+                                call_id,
+                            )
+                            continue
+
+                        bg_tool = await self.tool_manager.start_tool(
+                            call_id=call_id,
+                            tool_call_routine=ToolCallRoutine(
+                                tool_name=tool_name,
+                                args_json_str=args_json_str,
+                                deps=self.deps,
+                            ),
+                            is_idle_tool_call=self.is_idle_tool_call,
+                        )
+
+                        await self.output_queue.put(
+                            AdditionalOutputs(
+                                {
+                                    "role": "assistant",
+                                    "content": f"🛠️ Used tool {tool_name} with args {args_json_str}. The tool is now running. Tool ID: {bg_tool.tool_id}",
+                                },
+                            ),
+                        )
+
+                        if self.is_idle_tool_call:
+                            self.is_idle_tool_call = False
+
+                        logger.info(
+                            "Started background tool: %s (id=%s, call_id=%s)", tool_name, bg_tool.tool_id, call_id
+                        )
+
+                    # server error
+                    if event.type == "error":
+                        err = getattr(event, "error", None)
+                        msg = getattr(err, "message", str(err) if err else "unknown error")
+                        code = getattr(err, "code", "")
+
+                        if code == "conversation_already_has_active_response":
+                            # response.create was rejected.  The sender worker
+                            # is waiting on _response_done_event; when the active
+                            # response finishes it will wake up and see this flag.
+                            self._last_response_rejected = True
+                            logger.debug("response.create rejected; worker will retry after active response finishes")
+                        else:
+                            logger.error("Realtime error [%s]: %s (raw=%s)", code, msg, err)
+
+                        # Only show user-facing errors, not internal state errors
+                        if code not in ("input_audio_buffer_commit_empty",):
+                            await self.output_queue.put(
+                                AdditionalOutputs({"role": "assistant", "content": f"[error] {msg}"})
+                            )
+            finally:
+                # Stop the response sender worker.
+                if response_sender_task is not None:
+                    response_sender_task.cancel()
+                    try:
+                        await response_sender_task
+                    except asyncio.CancelledError:
+                        pass
+
+                # Stop background tool manager tasks (listener + cleanup) in all patus.
+                await self.tool_manager.shutdown()
 
     # Microphone receive
     async def receive(self, frame: Tuple[int, NDArray[np.int16]]) -> None:
@@ -529,7 +794,12 @@ class OpenaiRealtimeHandler(AsyncStreamHandler):
 
     async def shutdown(self) -> None:
         """Shutdown the handler."""
-        self._shutdown_requested = True
+        # Unblock the response sender worker so it can exit
+        self._response_done_event.set()
+
+        # Stop background tool manager tasks (listener + cleanup)
+        await self.tool_manager.shutdown()
+
         # Cancel any pending debounce task
         if self.partial_transcript_task and not self.partial_transcript_task.done():
             self.partial_transcript_task.cancel()
@@ -569,16 +839,7 @@ class OpenaiRealtimeHandler(AsyncStreamHandler):
         for any keys that might contain voice names. Falls back to a curated
         list known to work with realtime if discovery fails.
         """
-        # Conservative fallback list with default first
-        fallback = [
-            "cedar",
-            "alloy",
-            "aria",
-            "ballad",
-            "verse",
-            "sage",
-            "coral",
-        ]
+        fallback = list(AVAILABLE_VOICES)
         try:
             # Best effort discovery; safe-guarded for unexpected shapes
             model = await self.client.models.retrieve(config.MODEL_NAME)
@@ -644,11 +905,11 @@ class OpenaiRealtimeHandler(AsyncStreamHandler):
                 "content": [{"type": "input_text", "text": timestamp_msg}],
             },
         )
-        await self.connection.response.create(
-            response={
-                "instructions": "You MUST respond with function calls only - no speech or text. Choose appropriate actions for idle behavior.",
-                "tool_choice": "required",
-            },
+        await self._safe_response_create(
+            response=RealtimeResponseCreateParamsParam(
+                instructions="You MUST respond with function calls only - no speech or text. Choose appropriate actions for idle behavior.",
+                tool_choice="required",
+            ),
         )
 
     def _persist_api_key_if_needed(self) -> None:
