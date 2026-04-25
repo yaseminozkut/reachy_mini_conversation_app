@@ -1,3 +1,4 @@
+import random
 import logging
 from typing import Any, Dict
 
@@ -43,9 +44,11 @@ class Dance(Tool):
         "properties": {
             "move": {
                 "type": "string",
-                "description": f"""Name of the move; use 'random' or omit for random.
-                                    Here is a list of the available moves:
-                                        {get_available_dances_and_descriptions()}
+                "enum": ["random"] + list(AVAILABLE_MOVES.keys() if DANCE_AVAILABLE else []),
+                "description": f"""Name of the moves and their descriptions.\n
+                                Here is a list of the available moves, you MUST only choose from these: \n
+                                "random: Use when no specific move fits, or when asked for a general or surprise dance.\n"
+                                {get_available_dances_and_descriptions()}
                                 """,
             },
             "repeat": {
@@ -70,12 +73,11 @@ class Dance(Tool):
         logger.info("Tool call: dance move=%s repeat=%d", move_name, repeat)
 
         if not move_name or move_name == "random":
-            import random
-
             move_name = random.choice(list(AVAILABLE_MOVES.keys()))
 
         if move_name not in AVAILABLE_MOVES:
-            return {"error": f"Unknown dance move '{move_name}'. Available: {list(AVAILABLE_MOVES.keys())}"}
+            logger.warning("Unknown dance move '%s', falling back to random", move_name)
+            move_name = random.choice(list(AVAILABLE_MOVES.keys()))
 
         # Add dance moves to queue
         movement_manager = deps.movement_manager
