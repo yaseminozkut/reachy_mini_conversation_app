@@ -49,8 +49,9 @@ class PlayEmotion(Tool):
         "properties": {
             "emotion": {
                 "type": "string",
+                "enum": list(RECORDED_MOVES.list_moves()) if EMOTION_AVAILABLE else [],
                 "description": f"""Name of the emotion to play.
-                                    Here is a list of the available emotions:
+                                    Here is a list of the available emotions, you MUST only choose from these: \n
                                     {get_available_emotions_and_descriptions()}
                                     """,
             },
