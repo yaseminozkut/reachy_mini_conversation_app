@@ -402,6 +402,8 @@ class GeminiLiveHandler(AsyncStreamHandler):
         if not response.tool_call or not response.tool_call.function_calls:
             return
 
+        await self._flush_transcript_chunks("user", self._pending_user_transcript_chunks)
+
         for fc in response.tool_call.function_calls:
             tool_name = fc.name
             call_id = fc.id or str(uuid.uuid4())
