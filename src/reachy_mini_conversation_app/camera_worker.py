@@ -20,10 +20,27 @@ logger = logging.getLogger(__name__)
 class CameraWorker:
     """Thread-safe camera worker with frame buffering and optional head tracking."""
 
-    def __init__(self, reachy_mini: ReachyMini, head_tracker: HeadTracker | None = None) -> None:
+    def __init__(
+        self, reachy_mini: ReachyMini, head_tracker: HeadTracker | None = None, is_simulation: bool = False
+    ) -> None:
         """Initialize."""
         self.reachy_mini = reachy_mini
         self.head_tracker = head_tracker
+        self._webcam = None
+
+        if is_simulation:
+            try:
+                import cv2
+
+                cap = cv2.VideoCapture(0)
+                if cap.isOpened():
+                    self._webcam = cap
+                    logger.info("Simulation camera: using local webcam (index 0)")
+                else:
+                    cap.release()
+                    logger.warning("Simulation camera: no webcam found, running without camera")
+            except ImportError:
+                logger.warning("Simulation camera: opencv-python not installed, running without camera")
 
         self.latest_frame: NDArray[np.uint8] | None = None
         self.frame_lock = threading.Lock()
@@ -81,6 +98,8 @@ class CameraWorker:
         self._stop_event.set()
         if self._thread is not None:
             self._thread.join()
+        if self._webcam is not None:
+            self._webcam.release()
         head_tracker_close = getattr(self.head_tracker, "close", None)
         if callable(head_tracker_close):
             head_tracker_close()
@@ -97,7 +116,11 @@ class CameraWorker:
         while not self._stop_event.is_set():
             try:
                 current_time = time.time()
-                frame = self.reachy_mini.media.get_frame()
+                if self._webcam is not None:
+                    ret, bgr_frame = self._webcam.read()
+                    frame: NDArray[np.uint8] | None = np.asarray(bgr_frame, dtype=np.uint8) if ret else None
+                else:
+                    frame = self.reachy_mini.media.get_frame()
 
                 if frame is not None:
                     # Keep the latest frame available for tools and UI consumers

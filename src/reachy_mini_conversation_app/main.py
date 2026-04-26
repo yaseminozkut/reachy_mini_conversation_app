@@ -120,7 +120,7 @@ def run(
         args.gradio = True
 
     try:
-        camera_worker, vision_processor = initialize_camera_and_vision(args, robot)
+        camera_worker, vision_processor = initialize_camera_and_vision(args, robot, is_simulation=is_simulation)
     except CameraVisionInitializationError as e:
         logger.error("Failed to initialize camera/vision: %s", e)
         sys.exit(1)

@@ -52,6 +52,7 @@ def parse_args() -> tuple[argparse.Namespace, list]:  # type: ignore
 def initialize_camera_and_vision(
     args: argparse.Namespace,
     current_robot: ReachyMini,
+    is_simulation: bool = False,
 ) -> tuple[CameraWorker | None, VisionProcessor | None]:
     """Initialize camera capture, optional head tracking, and optional local vision."""
     camera_worker: Optional[CameraWorker] = None
@@ -80,7 +81,7 @@ def initialize_camera_and_vision(
                     f"Failed to initialize {args.head_tracker} head tracker: {e}",
                 ) from e
 
-        camera_worker = CameraWorker(current_robot, head_tracker)
+        camera_worker = CameraWorker(current_robot, head_tracker, is_simulation=is_simulation)
 
         if args.local_vision:
             result = subprocess.run(
