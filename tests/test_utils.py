@@ -94,4 +94,4 @@ def test_initialize_camera_and_vision_uses_mediapipe_head_tracker_in_process() -
     ):
         initialize_camera_and_vision(args, current_robot)
 
-    mock_camera_worker.assert_called_once_with(current_robot, mediapipe_head_tracker)
+    mock_camera_worker.assert_called_once_with(current_robot, mediapipe_head_tracker, is_simulation=False)
