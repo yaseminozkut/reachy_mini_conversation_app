@@ -1,3 +1,4 @@
+import random
 import logging
 from typing import Any, Dict
 
@@ -50,13 +51,13 @@ class PlayEmotion(Tool):
             "emotion": {
                 "type": "string",
                 "enum": list(RECORDED_MOVES.list_moves()) if EMOTION_AVAILABLE else [],
-                "description": f"""Name of the emotion to play.
+                "description": f"""Name of the emotion to play; omit for random.
                                     Here is a list of the available emotions, you MUST only choose from these: \n
                                     {get_available_emotions_and_descriptions()}
                                     """,
             },
         },
-        "required": ["emotion"],
+        "required": [],
     }
 
     async def __call__(self, deps: ToolDependencies, **kwargs: Any) -> Dict[str, Any]:
@@ -65,8 +66,6 @@ class PlayEmotion(Tool):
             return {"error": "Emotion system not available"}
 
         emotion_name = kwargs.get("emotion")
-        if not emotion_name:
-            return {"error": "Emotion name is required"}
 
         logger.info("Tool call: play_emotion emotion=%s", emotion_name)
 
@@ -76,6 +75,9 @@ class PlayEmotion(Tool):
             if not emotion_names:
                 return {"error": "No emotions currently available"}
 
+            if not emotion_name:
+                emotion_name = random.choice(emotion_names)
+                
             if emotion_name not in emotion_names:
                 return {"error": f"Unknown emotion '{emotion_name}'. Available: {emotion_names}"}
 
