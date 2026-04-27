@@ -77,7 +77,7 @@ class PlayEmotion(Tool):
 
             if not emotion_name:
                 emotion_name = random.choice(emotion_names)
-                
+
             if emotion_name not in emotion_names:
                 return {"error": f"Unknown emotion '{emotion_name}'. Available: {emotion_names}"}
 
