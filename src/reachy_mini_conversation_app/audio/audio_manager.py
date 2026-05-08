@@ -55,10 +55,7 @@ class AudioManager:
     Future sources can be added with a new entry point and behavior without changing existing callers.
     """
 
-    def __init__(
-            self, 
-            current_robot: ReachyMini
-    ):
+    def __init__(self, current_robot: ReachyMini):
         """Initialize audio manager."""
         self.current_robot = current_robot
 
@@ -84,7 +81,7 @@ class AudioManager:
                 return audio_frame
             n = len(audio_frame)
             end = min(self._clip_pos + n, len(self._clip_samples))
-            clip_chunk = self._clip_samples[self._clip_pos:end]
+            clip_chunk = self._clip_samples[self._clip_pos : end]
             mixed = audio_frame.copy()
             mix_len = len(clip_chunk)
             mixed[:mix_len] = np.clip(mixed[:mix_len] + clip_chunk, -1.0, 1.0)
@@ -100,7 +97,7 @@ class AudioManager:
                 self._clip_samples = None
                 return None
             end = min(self._clip_pos + chunk_samples, len(self._clip_samples))
-            chunk = self._clip_samples[self._clip_pos:end].copy()
+            chunk = self._clip_samples[self._clip_pos : end].copy()
             self._clip_pos = end
             return chunk
 
@@ -138,15 +135,16 @@ class AudioManager:
         out_rate = self._get_output_sample_rate()
         if file_rate != out_rate and len(data) > 0:
             from scipy.signal import resample as _resample
+
             n_out = int(len(data) * out_rate / file_rate)
             if n_out == 0:
                 return None
-            data = _resample(data, n_out).astype(np.float32)
+            data = np.asarray(_resample(data, n_out), dtype=np.float32)
 
         return data
 
     def _push_to_daemon(self, audio_frame: NDArray[np.float32]) -> None:
-        """The single call site for push_audio_sample."""
+        """Push audio frame via the single push_audio_sample call site."""
         try:
             self.current_robot.media.push_audio_sample(audio_frame)
         except Exception as exc:
@@ -167,7 +165,7 @@ class AudioManager:
         if self._thread is None or not self._thread.is_alive():
             logger.debug("Audio worker not running; stop() ignored")
             return
-        
+
         logger.info("Stopping audio manager...")
 
         self.clear_frame_queue()

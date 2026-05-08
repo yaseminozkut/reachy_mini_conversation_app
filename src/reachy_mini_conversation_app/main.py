@@ -61,6 +61,7 @@ def run(
         StartupSettings,
         load_startup_settings_into_runtime,
     )
+    from reachy_mini_conversation_app.audio.audio_manager import AudioManager
 
     logger = setup_logger(args.debug)
     logger.info("Starting Reachy Mini Conversation App")
@@ -154,12 +155,14 @@ def run(
         current_robot=robot,
         camera_worker=camera_worker,
     )
+    audio_manager = AudioManager(current_robot=robot)
 
     head_wobbler = HeadWobbler(set_speech_offsets=movement_manager.set_speech_offsets)
 
     deps = ToolDependencies(
         reachy_mini=robot,
         movement_manager=movement_manager,
+        audio_manager=audio_manager,
         camera_worker=camera_worker,
         vision_processor=vision_processor,
         head_wobbler=head_wobbler,
@@ -272,6 +275,7 @@ def run(
 
     # Each async service → its own thread/loop
     movement_manager.start()
+    audio_manager.start()
     head_wobbler.start()
     if camera_worker:
         camera_worker.start()
@@ -296,6 +300,7 @@ def run(
         logger.info("Keyboard interruption in main thread... closing server.")
     finally:
         movement_manager.stop()
+        audio_manager.stop()
         head_wobbler.stop()
         if camera_worker:
             camera_worker.stop()

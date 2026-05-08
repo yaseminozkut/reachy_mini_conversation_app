@@ -53,6 +53,7 @@ class ToolDependencies:
 
     reachy_mini: ReachyMini
     movement_manager: Any  # MovementManager from moves.py
+    audio_manager: Any  # AudioManager from audio/audio_manager.py
     # Optional deps
     camera_worker: Any | None = None  # CameraWorker for frame buffering
     vision_processor: Any | None = None
