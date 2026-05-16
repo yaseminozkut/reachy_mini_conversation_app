@@ -86,6 +86,10 @@ class PlayEmotion(Tool):
             emotion_move = EmotionQueueMove(emotion_name, RECORDED_MOVES)
             movement_manager.queue_move(emotion_move)
 
+            recorded_move = RECORDED_MOVES.get(emotion_name)
+            if recorded_move.sound_path is not None:
+                deps.audio_manager.queue_audio_clip(recorded_move.sound_path)
+
             return {"status": "queued", "emotion": emotion_name}
 
         except Exception as e:
