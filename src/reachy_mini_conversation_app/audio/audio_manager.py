@@ -32,6 +32,7 @@ import logging
 import threading
 from queue import Empty, Queue
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 from numpy.typing import NDArray
@@ -141,7 +142,7 @@ class AudioManager:
                 return None
             data = np.asarray(_resample(data, n_out), dtype=np.float32)
 
-        return data
+        return cast(NDArray[np.float32], data)
 
     def _push_to_daemon(self, audio_frame: NDArray[np.float32]) -> None:
         """Push audio frame via the single push_audio_sample call site."""
