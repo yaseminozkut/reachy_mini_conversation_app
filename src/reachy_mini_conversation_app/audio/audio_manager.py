@@ -198,7 +198,7 @@ class AudioManager:
         chunk_samples = max(1, int(out_rate * 0.032))
         chunk_duration = chunk_samples / out_rate
 
-        buf = np.empty(0, dtype=np.float32)
+        buf: NDArray[np.float32] = np.empty(0, dtype=np.float32)
         t_next = time.monotonic()
 
         while not self._stop_event.is_set():
