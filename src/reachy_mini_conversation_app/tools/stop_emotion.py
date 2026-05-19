@@ -29,5 +29,6 @@ class StopEmotion(Tool):
         movement_manager = deps.movement_manager
         movement_manager.clear_move_queue()
         audio_manager = deps.audio_manager
-        audio_manager.stop_clip()
+        if audio_manager is not None:
+            audio_manager.stop_clip()
         return {"status": "stopped emotion and cleared queue"}

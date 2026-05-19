@@ -649,7 +649,8 @@ class LocalStream:
                 audio.clear_output_buffer()
             elif hasattr(audio, "clear_player") and callable(audio.clear_player):
                 audio.clear_player()
-        self.handler.deps.audio_manager.clear_frame_queue()
+        if self.handler.deps.audio_manager is not None:
+            self.handler.deps.audio_manager.clear_frame_queue()
         self.handler.output_queue = asyncio.Queue()
 
     async def record_loop(self) -> None:
@@ -713,7 +714,8 @@ class LocalStream:
                     playback_delay_s = _estimate_pending_playback_seconds(self._robot)
                     head_wobbler.feed_pcm(audio_data.reshape(1, -1), input_sample_rate, start_delay_s=playback_delay_s)
 
-                self.handler.deps.audio_manager.queue_audio_frame(audio_frame)
+                if self.handler.deps.audio_manager is not None:
+                    self.handler.deps.audio_manager.queue_audio_frame(audio_frame)
 
             else:
                 logger.debug("Ignoring output type=%s", type(handler_output).__name__)
