@@ -3,22 +3,18 @@
 Design overview
 - There is a single output point to the robot: `mini.media.push_audio_sample`.
 - Audio comes from multiple sources (LLM conversation voice, emotion sounds from emotion library .wav file, future sources).
-- LLM conversation voice is the primary source. Emotion sounds is an additive secondary source fused
-  into audio frames at the sample level before pushing.
-- Mixing strategy is additive (fusion): clip samples are summed into continuous audio frames
-  and clipped to [-1, 1]. Additional mixing strategies may be introduced
-  in the future depending on new source requirements.
+- Mixing strategy is additive (fusion): samples from all active sources are summed and clipped to [-1, 1].
 
 Threading model
-- A dedicated worker thread owns all audio state and issues push_audio_sample
-  commands. It is the only thread that calls push_audio_sample.
+- A dedicated worker thread runs a time-driven mix loop (~32 ms ticks) and is the
+  sole caller of push_audio_sample.
 - External sources communicate via thread-safe entry points:
-    frames – queue_audio_frame() stages frames into the worker queue.
+    frames – queue_audio_frame() stages incoming audio frames into the worker queue.
     clips  – queue_audio_clip() loads a .wav clip for additive mixing.
-- Frames are staged in a queue; the worker drains it and fuses clip
-  samples in before pushing.
-- When the frame queue is empty and clip audio is active, the worker pushes
-  clip samples alone at the correct pacing (~32 ms chunks).
+- Each tick the worker drains all queued frames into an internal sample buffer,
+  slices out one 32 ms chunk (zero-padded if the buffer is short), fuses in the
+  current clip position, and pushes the result. When the frame buffer is empty
+  and a clip is active, zeros are fused with the clip so it continues playing.
 
 Safety
 - The worker thread is the sole caller of push_audio_sample, preventing
@@ -31,8 +27,8 @@ import time
 import logging
 import threading
 from queue import Empty, Queue
-from pathlib import Path
 from typing import cast
+from pathlib import Path
 
 import numpy as np
 from numpy.typing import NDArray
@@ -42,7 +38,7 @@ from reachy_mini import ReachyMini
 
 logger = logging.getLogger(__name__)
 
-WORKER_IDLE_TIMEOUT: float = 0.005  # 5 ms block on empty frame queue before looping
+WORKER_IDLE_TIMEOUT: float = 0.005  # 5 ms idle sleep when no audio is active
 
 
 class AudioManager:
@@ -91,17 +87,6 @@ class AudioManager:
                 self._clip_samples = None
             return mixed
 
-    def _next_clip_chunk(self, chunk_samples: int) -> NDArray[np.float32] | None:
-        """Return the next clip chunk for standalone playback, or None if done."""
-        with self._clip_lock:
-            if self._clip_samples is None or self._clip_pos >= len(self._clip_samples):
-                self._clip_samples = None
-                return None
-            end = min(self._clip_pos + chunk_samples, len(self._clip_samples))
-            chunk = self._clip_samples[self._clip_pos : end].copy()
-            self._clip_pos = end
-            return chunk
-
     def _get_output_sample_rate(self) -> int:
         if self._output_sample_rate is None:
             self._output_sample_rate = int(self.current_robot.media.get_output_audio_samplerate())
@@ -135,12 +120,12 @@ class AudioManager:
 
         out_rate = self._get_output_sample_rate()
         if file_rate != out_rate and len(data) > 0:
-            from scipy.signal import resample as _resample
+            from scipy.signal import resample
 
             n_out = int(len(data) * out_rate / file_rate)
             if n_out == 0:
                 return None
-            data = np.asarray(_resample(data, n_out), dtype=np.float32)
+            data = np.asarray(resample(data, n_out), dtype=np.float32)
 
         return cast(NDArray[np.float32], data)
 
@@ -180,7 +165,7 @@ class AudioManager:
 
     def queue_audio_frame(self, audio_frame: NDArray[np.float32]) -> None:
         """Stage a continuous audio frame for the worker to mix and push."""
-        self.frame_queue.put(audio_frame)
+        self.frame_queue.put(audio_frame.reshape(-1))
 
     def clear_frame_queue(self) -> None:
         """Discard all pending audio frames."""
@@ -208,22 +193,44 @@ class AudioManager:
         logger.debug("Audio clip stopped")
 
     def working_loop(self) -> None:
-        """Drain frame queue, mix clip, and push to daemon. Single push_audio_sample caller."""
+        """Time-driven mixer: fixed 32 ms chunks at a steady rate, mixing all active sources."""
         out_rate = self._get_output_sample_rate()
-        clip_chunk_samples = max(1, int(out_rate * 0.032))  # ~32 ms
-        clip_chunk_duration = clip_chunk_samples / out_rate
+        chunk_samples = max(1, int(out_rate * 0.032))
+        chunk_duration = chunk_samples / out_rate
+
+        buf = np.empty(0, dtype=np.float32)
+        t_next = time.monotonic()
 
         while not self._stop_event.is_set():
-            try:
-                audio_frame = self.frame_queue.get(timeout=WORKER_IDLE_TIMEOUT)
-            except Empty:
-                audio_frame = None
+            drained = []
+            while True:
+                try:
+                    drained.append(self.frame_queue.get_nowait())
+                except Empty:
+                    break
+            if drained:
+                buf = np.concatenate([buf, *drained])
 
-            if audio_frame is not None:
-                mixed = self._fuse_clip(audio_frame)
-                self._push_to_daemon(mixed)
+            with self._clip_lock:
+                clip_live = self._clip_samples is not None
+
+            if len(buf) == 0 and not clip_live:
+                time.sleep(WORKER_IDLE_TIMEOUT)
+                t_next = time.monotonic()
+                continue
+
+            if len(buf) >= chunk_samples:
+                chunk, buf = buf[:chunk_samples], buf[chunk_samples:]
             else:
-                chunk = self._next_clip_chunk(clip_chunk_samples)
-                if chunk is not None:
-                    self._push_to_daemon(chunk)
-                    time.sleep(clip_chunk_duration)
+                chunk = np.zeros(chunk_samples, dtype=np.float32)
+                chunk[: len(buf)] = buf
+                buf = np.empty(0, dtype=np.float32)
+
+            self._push_to_daemon(self._fuse_clip(chunk))
+
+            t_next += chunk_duration
+            wait = t_next - time.monotonic()
+            if wait > 0:
+                time.sleep(wait)
+            else:
+                t_next = time.monotonic()
