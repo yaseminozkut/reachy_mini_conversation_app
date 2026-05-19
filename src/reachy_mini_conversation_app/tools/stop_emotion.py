@@ -28,4 +28,6 @@ class StopEmotion(Tool):
         logger.info("Tool call: stop_emotion")
         movement_manager = deps.movement_manager
         movement_manager.clear_move_queue()
+        audio_manager = deps.audio_manager
+        audio_manager.stop_clip()
         return {"status": "stopped emotion and cleared queue"}

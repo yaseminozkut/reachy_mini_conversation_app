@@ -151,11 +151,12 @@ def run(
         logger.error("Failed to initialize camera/vision: %s", e)
         sys.exit(1)
 
+    audio_manager = AudioManager(current_robot=robot)
     movement_manager = MovementManager(
         current_robot=robot,
         camera_worker=camera_worker,
+        audio_manager=audio_manager,
     )
-    audio_manager = AudioManager(current_robot=robot)
 
     head_wobbler = HeadWobbler(set_speech_offsets=movement_manager.set_speech_offsets)
 

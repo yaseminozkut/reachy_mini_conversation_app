@@ -6,7 +6,8 @@ and executed sequentially by the MovementManager.
 
 from __future__ import annotations
 import logging
-from typing import Tuple
+from typing import Tuple, cast
+from pathlib import Path
 
 import numpy as np
 from numpy.typing import NDArray
@@ -60,6 +61,11 @@ class EmotionQueueMove(Move):  # type: ignore
         """Initialize an EmotionQueueMove."""
         self.emotion_move = recorded_moves.get(emotion_name)
         self.emotion_name = emotion_name
+
+    @property
+    def sound_path(self) -> Path | None:
+        """Sound path for emotion's audio clip."""
+        return cast(Path | None, self.emotion_move.sound_path)
 
     @property
     def duration(self) -> float:

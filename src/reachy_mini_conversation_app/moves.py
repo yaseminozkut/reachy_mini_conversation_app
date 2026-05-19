@@ -36,7 +36,11 @@ import time
 import logging
 import threading
 from queue import Empty, Queue
-from typing import Any, Dict, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Tuple
+
+
+if TYPE_CHECKING:
+    from reachy_mini_conversation_app.audio.audio_manager import AudioManager
 from collections import deque
 from dataclasses import dataclass
 
@@ -246,11 +250,13 @@ class MovementManager:
     def __init__(
         self,
         current_robot: ReachyMini,
+        audio_manager: "AudioManager",
         camera_worker: "Any" = None,
     ):
         """Initialize movement manager."""
         self.current_robot = current_robot
         self.camera_worker = camera_worker
+        self._audio_manager = audio_manager
 
         # Single timing source for durations
         self._now = time.monotonic
@@ -491,6 +497,9 @@ class MovementManager:
                 self.state.move_start_time = current_time
                 # Any real move cancels breathing mode flag
                 self._breathing_active = isinstance(self.state.current_move, BreathingMove)
+                sound_path = getattr(self.state.current_move, "sound_path", None)
+                if sound_path is not None:
+                    self._audio_manager.queue_audio_clip(sound_path)
                 logger.debug(f"Starting new move, duration: {self.state.current_move.duration}s")
 
     def _manage_breathing(self, current_time: float) -> None:

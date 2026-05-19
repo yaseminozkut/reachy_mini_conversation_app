@@ -81,14 +81,9 @@ class PlayEmotion(Tool):
             if emotion_name not in emotion_names:
                 return {"error": f"Unknown emotion '{emotion_name}'. Available: {emotion_names}"}
 
-            # Add emotion to queue
-            movement_manager = deps.movement_manager
+            # AudioManager plays the sound when MovementManager starts the move
             emotion_move = EmotionQueueMove(emotion_name, RECORDED_MOVES)
-            movement_manager.queue_move(emotion_move)
-
-            recorded_move = RECORDED_MOVES.get(emotion_name)
-            if recorded_move.sound_path is not None:
-                deps.audio_manager.queue_audio_clip(recorded_move.sound_path)
+            deps.movement_manager.queue_move(emotion_move)
 
             return {"status": "queued", "emotion": emotion_name}
 
