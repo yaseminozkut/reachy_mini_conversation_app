@@ -82,7 +82,7 @@ async def test_play_loop_feeds_head_wobbler_with_local_playback_delay() -> None:
 
     class Handler:
         def __init__(self) -> None:
-            self.deps = SimpleNamespace(head_wobbler=head_wobbler)
+            self.deps = SimpleNamespace(head_wobbler=head_wobbler, audio_manager=MagicMock())
             self.output_queue: asyncio.Queue[Any] = asyncio.Queue()
             self._emitted = False
 
@@ -121,7 +121,7 @@ async def test_play_loop_feeds_head_wobbler_with_local_playback_delay() -> None:
     assert np.array_equal(args[0], chunk.reshape(1, -1))
     assert args[1] == 24000
     assert kwargs["start_delay_s"] == pytest.approx(1.0)
-    media.push_audio_sample.assert_called_once()
+    handler.deps.audio_manager.queue_audio_frame.assert_called_once()
 
 
 def test_backend_config_persists_gemini_selection_and_status(
