@@ -132,8 +132,9 @@ class BaseRealtimeHandler(ConversationHandler, ABC):
         self.connection: AsyncRealtimeConnection | None = None
         self.output_queue: "asyncio.Queue[Tuple[int, NDArray[np.int16]] | AdditionalOutputs]" = asyncio.Queue()
 
-        self.last_activity_time = asyncio.get_event_loop().time()
-        self.start_time = asyncio.get_event_loop().time()
+        self.last_activity_time = time.monotonic()
+        self.start_time = time.monotonic()
+        self.is_idle_tool_call = False
         self.gradio_mode = gradio_mode
         self.instance_path = instance_path
         self._voice_override: str | None = self._normalize_startup_voice(startup_voice)
@@ -241,7 +242,7 @@ class BaseRealtimeHandler(ConversationHandler, ABC):
 
     def _mark_activity(self, reason: str) -> None:
         """Record non-idle conversation activity for the idle timer."""
-        self.last_activity_time = asyncio.get_event_loop().time()
+        self.last_activity_time = time.monotonic()
         logger.debug("last activity time updated to %s (%s)", self.last_activity_time, reason)
 
     def copy(self) -> "BaseRealtimeHandler":
@@ -702,6 +703,7 @@ class BaseRealtimeHandler(ConversationHandler, ABC):
                 async for event in self.connection:
                     logger.debug("Realtime event: %s", event.type)
                     if event.type == "input_audio_buffer.speech_started":
+                        self.is_idle_tool_call = False
                         self._mark_activity("user_speech_started")
                         self._turn_user_done_at = None
                         self._turn_response_created_at = None
@@ -770,6 +772,7 @@ class BaseRealtimeHandler(ConversationHandler, ABC):
 
                     # Handle completed transcription (user finished speaking)
                     if event.type == "conversation.item.input_audio_transcription.completed":
+                        self.is_idle_tool_call = False
                         self._mark_activity("user_transcription_completed")
                         raw_transcript = event.transcript or ""
                         transcript = raw_transcript.strip()
@@ -944,7 +947,7 @@ class BaseRealtimeHandler(ConversationHandler, ABC):
         # This is called periodically by the fastrtc Stream
 
         # Handle idle
-        idle_duration = asyncio.get_event_loop().time() - self.last_activity_time
+        idle_duration = time.monotonic() - self.last_activity_time
         if idle_duration > 180.0 and self._response_done_event.is_set() and self.deps.movement_manager.is_idle():
             try:
                 await self.send_idle_signal(idle_duration)
@@ -952,7 +955,7 @@ class BaseRealtimeHandler(ConversationHandler, ABC):
                 logger.warning("Idle tool skipped (connection closed?): %s", e)
                 return None
 
-            self.last_activity_time = asyncio.get_event_loop().time()  # avoid repeated resets
+            self.last_activity_time = time.monotonic()  # avoid repeated resets
 
         return await wait_for_item(self.output_queue)  # type: ignore[no-any-return]
 
@@ -985,7 +988,7 @@ class BaseRealtimeHandler(ConversationHandler, ABC):
 
     def format_timestamp(self) -> str:
         """Format current timestamp with date, time, and elapsed seconds."""
-        loop_time = asyncio.get_event_loop().time()  # monotonic
+        loop_time = time.monotonic()
         elapsed_seconds = loop_time - self.start_time
         dt = datetime.now()  # wall-clock
         return f"[{dt.strftime('%Y-%m-%d %H:%M:%S')} | +{elapsed_seconds:.1f}s]"
