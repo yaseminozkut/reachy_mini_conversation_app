@@ -1,0 +1,1 @@
+2026-07-01 21:25:44,896 INFO reachy_mini_conversation_app.tools.play_emotion:264 | Tool call: play_emotion emotion=sad no

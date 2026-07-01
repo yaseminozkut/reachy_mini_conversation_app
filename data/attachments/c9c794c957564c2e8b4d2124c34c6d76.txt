@@ -1,0 +1,7 @@
+2026-07-01 21:25:43,023 INFO reachy_mini_conversation_app.tool_spaces:372 | Installed Space tool source: pollen-robotics/reachy-mini-search-tool
+2026-07-01 21:25:43,023 INFO reachy_mini_conversation_app.tool_spaces:373 | Manifest: external_content/installed_tool_spaces.json
+2026-07-01 21:25:43,023 INFO reachy_mini_conversation_app.tool_spaces:374 | pollen-robotics/reachy-mini-search-tool (pollen_robotics_reachy_mini_search_tool)
+  MCP endpoint: https://pollen-robotics-reachy-mini-search-tool.hf.space/gradio_api/mcp/
+  Tools:
+    - pollen_robotics_reachy_mini_search_tool__search_web
+2026-07-01 21:25:43,023 INFO reachy_mini_conversation_app.tool_spaces:377 | Tools installed. Add tool IDs to a profile's tools.txt to enable them.

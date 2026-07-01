@@ -1,0 +1,288 @@
+--- Logging error ---
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/logging/__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+ValueError: I/O operation on closed file.
+Call stack:
+  File "/home/runner/work/_temp/setup-uv-cache/builds-v0/.tmp5f4UoX/bin/pytest", line 10, in <module>
+    sys.exit(console_main())
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/config/__init__.py", line 223, in console_main
+    code = main()
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/config/__init__.py", line 199, in main
+    ret: ExitCode | int = config.hook.pytest_cmdline_main(config=config)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/main.py", line 365, in pytest_cmdline_main
+    return wrap_session(config, _main)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/main.py", line 318, in wrap_session
+    session.exitstatus = doit(config, session) or 0
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/main.py", line 372, in _main
+    config.hook.pytest_runtestloop(session=session)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/main.py", line 396, in pytest_runtestloop
+    item.config.hook.pytest_runtest_protocol(item=item, nextitem=nextitem)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/runner.py", line 118, in pytest_runtest_protocol
+    runtestprotocol(item, nextitem=nextitem)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/runner.py", line 137, in runtestprotocol
+    reports.append(call_and_report(item, "call", log))
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/runner.py", line 244, in call_and_report
+    call = CallInfo.from_call(
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/runner.py", line 353, in from_call
+    result: TResult | None = func()
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/runner.py", line 245, in <lambda>
+    lambda: runtest_hook(item=item, **kwds),
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/runner.py", line 179, in pytest_runtest_call
+    item.runtest()
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/python.py", line 1720, in runtest
+    self.ihook.pytest_pyfunc_call(pyfuncitem=self)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/python.py", line 166, in pytest_pyfunc_call
+    result = testfunction(**testargs)
+  File "/home/runner/work/reachy_mini_conversation_app/reachy_mini_conversation_app/tests/test_tool_spaces.py", line 226, in test_tool_spaces_manifest_uses_instance_path_when_provided
+    assert handle_tool_spaces_command(args, instance_path=tmp_path) == 0
+  File "/home/runner/work/reachy_mini_conversation_app/reachy_mini_conversation_app/src/reachy_mini_conversation_app/tool_spaces.py", line 372, in handle_tool_spaces_command
+    logger.info("Installed Space tool source: %s", resolved_space.slug)
+Message: 'Installed Space tool source: %s'
+Arguments: ('pollen-robotics/reachy-mini-search-tool',)
+--- Logging error ---
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/logging/__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+ValueError: I/O operation on closed file.
+Call stack:
+  File "/home/runner/work/_temp/setup-uv-cache/builds-v0/.tmp5f4UoX/bin/pytest", line 10, in <module>
+    sys.exit(console_main())
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/config/__init__.py", line 223, in console_main
+    code = main()
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/config/__init__.py", line 199, in main
+    ret: ExitCode | int = config.hook.pytest_cmdline_main(config=config)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/main.py", line 365, in pytest_cmdline_main
+    return wrap_session(config, _main)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/main.py", line 318, in wrap_session
+    session.exitstatus = doit(config, session) or 0
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/main.py", line 372, in _main
+    config.hook.pytest_runtestloop(session=session)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/main.py", line 396, in pytest_runtestloop
+    item.config.hook.pytest_runtest_protocol(item=item, nextitem=nextitem)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/runner.py", line 118, in pytest_runtest_protocol
+    runtestprotocol(item, nextitem=nextitem)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/runner.py", line 137, in runtestprotocol
+    reports.append(call_and_report(item, "call", log))
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/runner.py", line 244, in call_and_report
+    call = CallInfo.from_call(
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/runner.py", line 353, in from_call
+    result: TResult | None = func()
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/runner.py", line 245, in <lambda>
+    lambda: runtest_hook(item=item, **kwds),
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/runner.py", line 179, in pytest_runtest_call
+    item.runtest()
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/python.py", line 1720, in runtest
+    self.ihook.pytest_pyfunc_call(pyfuncitem=self)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/python.py", line 166, in pytest_pyfunc_call
+    result = testfunction(**testargs)
+  File "/home/runner/work/reachy_mini_conversation_app/reachy_mini_conversation_app/tests/test_tool_spaces.py", line 226, in test_tool_spaces_manifest_uses_instance_path_when_provided
+    assert handle_tool_spaces_command(args, instance_path=tmp_path) == 0
+  File "/home/runner/work/reachy_mini_conversation_app/reachy_mini_conversation_app/src/reachy_mini_conversation_app/tool_spaces.py", line 373, in handle_tool_spaces_command
+    logger.info("Manifest: %s", manifest_path)
+Message: 'Manifest: %s'
+Arguments: (PosixPath('/tmp/pytest-of-runner/pytest-0/test_tool_spaces_manifest_uses0/installed_tool_spaces.json'),)
+--- Logging error ---
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/logging/__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+ValueError: I/O operation on closed file.
+Call stack:
+  File "/home/runner/work/_temp/setup-uv-cache/builds-v0/.tmp5f4UoX/bin/pytest", line 10, in <module>
+    sys.exit(console_main())
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/config/__init__.py", line 223, in console_main
+    code = main()
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/config/__init__.py", line 199, in main
+    ret: ExitCode | int = config.hook.pytest_cmdline_main(config=config)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/main.py", line 365, in pytest_cmdline_main
+    return wrap_session(config, _main)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/main.py", line 318, in wrap_session
+    session.exitstatus = doit(config, session) or 0
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/main.py", line 372, in _main
+    config.hook.pytest_runtestloop(session=session)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/main.py", line 396, in pytest_runtestloop
+    item.config.hook.pytest_runtest_protocol(item=item, nextitem=nextitem)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/runner.py", line 118, in pytest_runtest_protocol
+    runtestprotocol(item, nextitem=nextitem)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/runner.py", line 137, in runtestprotocol
+    reports.append(call_and_report(item, "call", log))
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/runner.py", line 244, in call_and_report
+    call = CallInfo.from_call(
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/runner.py", line 353, in from_call
+    result: TResult | None = func()
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/runner.py", line 245, in <lambda>
+    lambda: runtest_hook(item=item, **kwds),
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/runner.py", line 179, in pytest_runtest_call
+    item.runtest()
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/python.py", line 1720, in runtest
+    self.ihook.pytest_pyfunc_call(pyfuncitem=self)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/python.py", line 166, in pytest_pyfunc_call
+    result = testfunction(**testargs)
+  File "/home/runner/work/reachy_mini_conversation_app/reachy_mini_conversation_app/tests/test_tool_spaces.py", line 226, in test_tool_spaces_manifest_uses_instance_path_when_provided
+    assert handle_tool_spaces_command(args, instance_path=tmp_path) == 0
+  File "/home/runner/work/reachy_mini_conversation_app/reachy_mini_conversation_app/src/reachy_mini_conversation_app/tool_spaces.py", line 374, in handle_tool_spaces_command
+    logger.info("%s", format_space_tool_listing(resolved_space))
+Message: '%s'
+Arguments: ('pollen-robotics/reachy-mini-search-tool (pollen_robotics_reachy_mini_search_tool)\n  MCP endpoint: https://pollen-robotics-reachy-mini-search-tool.hf.space/gradio_api/mcp/\n  Tools:\n    - pollen_robotics_reachy_mini_search_tool__search_web',)
+--- Logging error ---
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/logging/__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+ValueError: I/O operation on closed file.
+Call stack:
+  File "/home/runner/work/_temp/setup-uv-cache/builds-v0/.tmp5f4UoX/bin/pytest", line 10, in <module>
+    sys.exit(console_main())
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/config/__init__.py", line 223, in console_main
+    code = main()
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/config/__init__.py", line 199, in main
+    ret: ExitCode | int = config.hook.pytest_cmdline_main(config=config)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/main.py", line 365, in pytest_cmdline_main
+    return wrap_session(config, _main)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/main.py", line 318, in wrap_session
+    session.exitstatus = doit(config, session) or 0
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/main.py", line 372, in _main
+    config.hook.pytest_runtestloop(session=session)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/main.py", line 396, in pytest_runtestloop
+    item.config.hook.pytest_runtest_protocol(item=item, nextitem=nextitem)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/runner.py", line 118, in pytest_runtest_protocol
+    runtestprotocol(item, nextitem=nextitem)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/runner.py", line 137, in runtestprotocol
+    reports.append(call_and_report(item, "call", log))
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/runner.py", line 244, in call_and_report
+    call = CallInfo.from_call(
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/runner.py", line 353, in from_call
+    result: TResult | None = func()
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/runner.py", line 245, in <lambda>
+    lambda: runtest_hook(item=item, **kwds),
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/runner.py", line 179, in pytest_runtest_call
+    item.runtest()
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/python.py", line 1720, in runtest
+    self.ihook.pytest_pyfunc_call(pyfuncitem=self)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+  File "/home/runner/work/_temp/setup-uv-cache/archive-v0/ibzQo8-wkFmERX0X/lib/python3.12/site-packages/_pytest/python.py", line 166, in pytest_pyfunc_call
+    result = testfunction(**testargs)
+  File "/home/runner/work/reachy_mini_conversation_app/reachy_mini_conversation_app/tests/test_tool_spaces.py", line 226, in test_tool_spaces_manifest_uses_instance_path_when_provided
+    assert handle_tool_spaces_command(args, instance_path=tmp_path) == 0
+  File "/home/runner/work/reachy_mini_conversation_app/reachy_mini_conversation_app/src/reachy_mini_conversation_app/tool_spaces.py", line 377, in handle_tool_spaces_command
+    logger.info("Tools installed. Add tool IDs to a profile's tools.txt to enable them.")
+Message: "Tools installed. Add tool IDs to a profile's tools.txt to enable them."
+Arguments: ()

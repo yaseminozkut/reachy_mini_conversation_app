@@ -1,0 +1,1 @@
+{"id":"25e542780e7ff74c9799667b9e15fa2b","fullName":"tests.test_openai_realtime#test_empty_user_transcript_exits_listening_without_chat_message","name":"test_empty_user_transcript_exits_listening_without_chat_message","status":"passed","testResultsByEnv":{"default":"f5668c4f7884a9aa1afc981245c09188"}}

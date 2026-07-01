@@ -1,0 +1,2 @@
+WARNING  reachy_mini_conversation_app.prompts:prompts.py:29 Profile 'incomplete_prompt' has no instructions.txt
+WARNING  reachy_mini_conversation_app.prompts:prompts.py:63 Using default profile instructions from /home/runner/work/reachy_mini_conversation_app/reachy_mini_conversation_app/profiles/default/instructions.txt because profile 'incomplete_prompt' is incomplete
